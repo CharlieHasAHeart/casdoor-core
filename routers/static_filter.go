@@ -41,6 +41,7 @@ var (
 	newStaticBaseUrl = conf.GetConfigString("staticBaseUrl")
 	enableGzip       = conf.GetConfigBool("enableGzip")
 	frontendBaseDir  = conf.GetConfigString("frontendBaseDir")
+	headlessMode     = conf.GetConfigBool("headless")
 )
 
 func getWebBuildFolder() string {
@@ -200,6 +201,13 @@ func StaticFilter(ctx *context.Context) {
 	if strings.HasPrefix(urlPath, "/api/") || strings.HasPrefix(urlPath, "/.well-known/") {
 		return
 	}
+	if strings.HasPrefix(urlPath, "/files/") {
+		return
+	}
+	if headlessMode {
+		serveHeadlessResponse(ctx)
+		return
+	}
 	if serveAuthCallbackHandlerScript(ctx) {
 		return
 	}
@@ -276,6 +284,13 @@ func StaticFilter(ctx *context.Context) {
 	} else {
 		serveFileWithReplace(ctx.ResponseWriter, ctx.Request, path, organizationThemeCookie)
 	}
+}
+
+func serveHeadlessResponse(ctx *context.Context) {
+	ctx.Output.Header("Content-Type", "application/json; charset=utf-8")
+	ctx.Output.Header("Cache-Control", "no-store")
+	ctx.ResponseWriter.WriteHeader(http.StatusNotImplemented)
+	_, _ = ctx.ResponseWriter.Write([]byte(`{"error":"headless_ui_required","message":"Casdoor core is running without a bundled UI; configure an external authentication UI for browser flows."}`))
 }
 
 func serveFileWithReplace(w http.ResponseWriter, r *http.Request, name string, organizationThemeCookie *OrganizationThemeCookie) {

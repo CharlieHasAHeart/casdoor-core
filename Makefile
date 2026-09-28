@@ -66,10 +66,6 @@ backend: fmt vet ## Build backend binary.
 backend-vendor: vendor fmt vet ## Build backend binary with vendor.
 	go build -mod=vendor -o bin/manager main.go
 
-.PHONY: frontend
-frontend: ## Build backend binary.
-	cd web/ && yarn && yarn run build && cd -
-
 .PHONY: vendor
 vendor: ## Update vendor.
 	go mod vendor

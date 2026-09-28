@@ -28,33 +28,13 @@ import (
 type I18nData map[string]map[string]string
 
 var (
-	reI18nFrontend          *regexp.Regexp
 	reI18nBackendObject     *regexp.Regexp
 	reI18nBackendController *regexp.Regexp
 )
 
 func init() {
-	reI18nFrontend, _ = regexp.Compile("i18next.t\\(\"(.*?)\"\\)")
 	reI18nBackendObject, _ = regexp.Compile("i18n.Translate\\((.*?)\"\\)")
 	reI18nBackendController, _ = regexp.Compile("c.T\\((.*?)\"\\)")
-}
-
-func getAllI18nStringsFrontend(fileContent string) []string {
-	res := []string{}
-
-	matches := reI18nFrontend.FindAllStringSubmatch(fileContent, -1)
-	if matches == nil {
-		return res
-	}
-
-	for _, match := range matches {
-		target, err := strconv.Unquote("\"" + match[1] + "\"")
-		if err != nil {
-			target = match[1]
-		}
-		res = append(res, target)
-	}
-	return res
 }
 
 func getAllI18nStringsBackend(fileContent string, isObjectPackage bool) []string {
@@ -118,26 +98,14 @@ func getAllFilePathsInFolder(folder string, fileSuffix string) []string {
 }
 
 func parseAllWords(category string) *I18nData {
-	var paths []string
-	if category == "backend" {
-		paths = getAllFilePathsInFolder("../", ".go")
-	} else {
-		// the console is TypeScript, so ".js" alone would walk right past it
-		paths = getAllFilePathsInFolder("../web/src", ".tsx")
-		paths = append(paths, getAllFilePathsInFolder("../web/src", ".ts")...)
-	}
+	paths := getAllFilePathsInFolder("../", ".go")
 
 	allWords := []string{}
 	for _, path := range paths {
 		fileContent := util.ReadStringFromPath(path)
 
-		var words []string
-		if category == "backend" {
-			isObjectPackage := strings.Contains(path, "object")
-			words = getAllI18nStringsBackend(fileContent, isObjectPackage)
-		} else {
-			words = getAllI18nStringsFrontend(fileContent)
-		}
+		isObjectPackage := strings.Contains(path, "object")
+		words := getAllI18nStringsBackend(fileContent, isObjectPackage)
 		allWords = append(allWords, words...)
 	}
 	fmt.Printf("%v\n", allWords)

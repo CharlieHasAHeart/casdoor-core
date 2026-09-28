@@ -18,22 +18,6 @@ package i18n
 
 import "testing"
 
-func TestGenerateI18nFrontend(t *testing.T) {
-	data := parseAllWords("frontend")
-
-	applyToOtherLanguage("frontend", "en", data)
-	applyToOtherLanguage("frontend", "es", data)
-	applyToOtherLanguage("frontend", "fr", data)
-	applyToOtherLanguage("frontend", "de", data)
-	applyToOtherLanguage("frontend", "ja", data)
-	applyToOtherLanguage("frontend", "zh", data)
-	applyToOtherLanguage("frontend", "vi", data)
-	applyToOtherLanguage("frontend", "pt", data)
-	applyToOtherLanguage("frontend", "tr", data)
-	applyToOtherLanguage("frontend", "pl", data)
-	applyToOtherLanguage("frontend", "uk", data)
-}
-
 func TestGenerateI18nBackend(t *testing.T) {
 	data := parseAllWords("backend")
 

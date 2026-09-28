@@ -40,6 +40,18 @@
   </p>
 </div>
 
+## YuanChuangLi headless fork
+
+This repository is maintained as a backend-only Casdoor core for the
+YuanChuangLi project family. The bundled `web/` and `web-old/` frontends have
+been removed from this branch. Identity persistence, password handling, OAuth,
+OIDC, token issuance, APIs, policy, and storage remain in this repository.
+
+Application-specific login pages are separate projects. One pinned
+`casdoor-core` revision can be used by many unrelated applications, each with
+its own login UI, OIDC client, redirect URIs, and runtime configuration. See
+[`HEADLESS.md`](HEADLESS.md) for the boundary and development workflow.
+
 <div align="center">
   <a href="https://door.casdoor.net">
     <img src="https://cdn.casbin.org/img/casdoor-signin.png" alt="Casdoor sign-in page with password, code, WebAuthn and Face ID tabs and social login icons" width="900">
@@ -180,29 +192,32 @@ Guide: [Try with Helm](https://casdoor.ai/docs/basic/try-with-helm)
 
 ### From source — for development
 
-Use this if you intend to modify Casdoor. Prerequisites: **Go 1.25+** (see [`go.mod`](go.mod)), **Node.js 20 LTS**, **Yarn 1.x**, and a supported database (MySQL, PostgreSQL, SQLite, SQL Server and others).
+Use this if you intend to modify Casdoor. Prerequisites: **Go 1.25+** (see [`go.mod`](go.mod)) and a supported database (MySQL, PostgreSQL, SQLite, SQL Server and others). A Node.js or Yarn installation is not required for this headless branch.
 
 ```bash
 git clone https://github.com/casdoor/casdoor.git
 cd casdoor
 ```
 
-Set `driverName`, `dataSourceName` and `dbName` in [`conf/app.conf`](conf/app.conf). For MySQL, create the `casdoor` database first, or start the server with `--createDatabase=true`. Then build the frontend and run the server:
+Set `driverName`, `dataSourceName` and `dbName` in [`conf/app.conf`](conf/app.conf). For MySQL, create the `casdoor` database first, or start the server with `--createDatabase=true`. Then run the backend:
 
 ```bash
-cd web && yarn install && yarn build && cd .. && go run main.go
+go run main.go
 ```
 
-While working on the frontend, run `yarn start` in [`web/`](web) instead of `yarn build` to get hot reload on port 7001, with `go run main.go` serving the API from a second terminal.
+The default configuration enables `headless = true`. API and OIDC endpoints
+remain available; browser routes that previously served the bundled Casdoor UI
+return `501 headless_ui_required` until an external authentication UI is
+configured.
 
 Guide: [Server installation](https://casdoor.ai/docs/basic/server-installation)
 
 ## 👉 After you sign in
 
-At this point you have a running identity provider with nothing connected to it yet. Next:
+At this point you have a running identity core with no application UI bundled. Next:
 
-1. **Change the `admin` password.** `123` is a demo credential and must not survive contact with production.
-2. **[Connect your first application](https://casdoor.ai/docs/how-to-connect/overview)** — create an Application in the console, copy its Client ID and Client Secret, and point your app's OAuth/OIDC client at Casdoor.
+1. **Change the `admin` password through an administrative API or an external management UI.** `123` is a demo credential and must not survive contact with production.
+2. **[Connect your first application](https://casdoor.ai/docs/how-to-connect/overview)** — create an Application through the administrative API or an external management UI, copy its Client ID and Client Secret, and point your app's OAuth/OIDC client at Casdoor.
 3. **[Add an identity provider](https://casdoor.ai/docs/provider/overview)** if you want Google, GitHub or Entra ID sign-in.
 4. **[Pick an SDK](https://casdoor.ai/docs/category/integrations)** for your language, or call the [Public API](https://casdoor.ai/docs/basic/public-api) directly.
 
@@ -238,14 +253,13 @@ At this point you have a running identity provider with nothing connected to it 
 - **SDKs** — Go, Java, Python, Node.js, .NET, PHP, Rust and more
 - **Swagger UI** — [live API explorer](https://door.casdoor.net/swagger)
 - **Webhooks** — push user and sign-in events into your own systems
-- **Customizable UI** — theme the login page and console per organization
+- **External UI boundary** — application login pages integrate through the API and OIDC contracts
 
 ## 🧱 Technology stack
 
-Casdoor is a frontend–backend separated application:
+This fork contains the Casdoor backend and identity core:
 
 - **Backend** — Go with the [Beego](https://github.com/beego/beego) framework, exposing REST APIs ([repository root](https://github.com/casdoor/casdoor))
-- **Frontend** — React 18 with [shadcn/ui](https://ui.shadcn.com/) on Tailwind CSS, built with Vite ([`web/`](web)). The previous Ant Design console is kept for reference at [`web-old/`](web-old) and is no longer built or served.
 - **Database** — MySQL, PostgreSQL, SQLite, SQL Server and others through [XORM](https://xorm.io/)
 - **Cache** — Redis, optional; needed if you run more than one Casdoor replica
 
@@ -300,7 +314,7 @@ Contributions are welcome. For anything larger than a small fix, **please open a
 
 Read the [contribution guidelines](https://casdoor.ai/docs/contributing/) before you start.
 
-**Translations.** User-facing strings in the web console go through [i18next](https://www.i18next.com/). When you add or change one under [`web/`](web), update the English catalog at [`web/src/locales/en/data.json`](web/src/locales/en/data.json). The other languages are translated on [Crowdin](https://crowdin.com/project/casdoor-site) and should not be edited by hand.
+**Translations.** Backend-facing strings are maintained under [`i18n/locales/`](i18n/locales/). Application login UI translations belong to the external UI repository, not this core.
 
 ## 🙌 Support Casdoor
 
