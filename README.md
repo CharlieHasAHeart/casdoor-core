@@ -147,7 +147,7 @@ Guide: [Try with Docker](https://casdoor.ai/docs/basic/try-with-docker)
 
 > **Two things to know before running it:**
 >
-> 1. Compose **builds the image from source** (Go backend plus React frontend). The first `docker compose up` takes several minutes, so it is not the quick-trial path — use the all-in-one image above for that.
+> 1. Compose **builds the headless Go backend image from source**. The first `docker compose up` takes several minutes, so it is not the quick-trial path — use the all-in-one image above for that.
 > 2. You have to point Casdoor at the bundled database first.
 
 Set the MySQL settings in [`conf/app.conf`](conf/app.conf) to match the `db` service:

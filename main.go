@@ -91,9 +91,6 @@ func main() {
 	util.SafeGoroutine(func() { object.RunSyncUsersJob() })
 	util.SafeGoroutine(func() { controllers.InitCLIDownloader() })
 
-	// web.DelStaticPath("/static")
-	// web.SetStaticPath("/assets", "web/build/assets")
-
 	web.BConfig.WebConfig.DirectoryIndex = true
 	if web.BConfig.RunMode == "dev" {
 		web.SetStaticPath("/swagger", "swagger")

@@ -30,7 +30,6 @@ config: |
   initScore = 0
   logPostOnly = true
   origin =
-  enableGzip = true
   ldapServerPort = 10389
 
 # Use secret to mount app.conf file for who don't want user,pass on git  

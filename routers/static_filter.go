@@ -15,60 +15,19 @@
 package routers
 
 import (
-	"compress/gzip"
 	stdcontext "context"
 	"errors"
 	"fmt"
-	"html"
-	"io"
 	"net/http"
 	"net/url"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/beego/beego/v2/core/logs"
 	"github.com/beego/beego/v2/server/web/context"
-	"github.com/casdoor/casdoor/conf"
 	"github.com/casdoor/casdoor/controllers"
 	"github.com/casdoor/casdoor/object"
 	"github.com/casdoor/casdoor/util"
 )
-
-var (
-	oldStaticBaseUrl = "https://cdn.casbin.org"
-	newStaticBaseUrl = conf.GetConfigString("staticBaseUrl")
-	enableGzip       = conf.GetConfigBool("enableGzip")
-	frontendBaseDir  = conf.GetConfigString("frontendBaseDir")
-	headlessMode     = conf.GetConfigBool("headless")
-)
-
-func getWebBuildFolder() string {
-	path := "web/build"
-	if util.FileExist(filepath.Join(path, "index.html")) || frontendBaseDir == "" {
-		return path
-	}
-
-	if util.FileExist(filepath.Join(frontendBaseDir, "index.html")) {
-		return frontendBaseDir
-	}
-
-	path = filepath.Join(frontendBaseDir, "web/build")
-	if util.FileExist(filepath.Join(path, "index.html")) {
-		return path
-	}
-
-	casdoorDir := filepath.Join(filepath.Dir(frontendBaseDir), "casdoor")
-	if util.FileExist(filepath.Join(casdoorDir, "index.html")) {
-		return casdoorDir
-	}
-	if util.FileExist(filepath.Join(casdoorDir, "web/build", "index.html")) {
-		return filepath.Join(casdoorDir, "web/build")
-	}
-
-	return path
-}
 
 func fastAutoSignin(ctx *context.Context) (string, error) {
 	userId := getSessionUser(ctx)
@@ -196,6 +155,7 @@ func StaticFilter(ctx *context.Context) {
 
 	if urlPath == "/.well-known/acme-challenge/filename" {
 		http.ServeContent(ctx.ResponseWriter, ctx.Request, "acme-challenge", time.Now(), strings.NewReader("content"))
+		return
 	}
 
 	if strings.HasPrefix(urlPath, "/api/") || strings.HasPrefix(urlPath, "/.well-known/") {
@@ -204,86 +164,7 @@ func StaticFilter(ctx *context.Context) {
 	if strings.HasPrefix(urlPath, "/files/") {
 		return
 	}
-	if headlessMode {
-		serveHeadlessResponse(ctx)
-		return
-	}
-	if serveAuthCallbackHandlerScript(ctx) {
-		return
-	}
-	if serveProviderHintRedirectScript(ctx) {
-		return
-	}
-	if strings.HasPrefix(urlPath, "/cas") && (strings.HasSuffix(urlPath, "/serviceValidate") || strings.HasSuffix(urlPath, "/proxy") || strings.HasSuffix(urlPath, "/proxyValidate") || strings.HasSuffix(urlPath, "/validate") || strings.HasSuffix(urlPath, "/p3/serviceValidate") || strings.HasSuffix(urlPath, "/p3/proxyValidate") || strings.HasSuffix(urlPath, "/samlValidate")) {
-		return
-	}
-	if strings.HasPrefix(urlPath, "/scim") {
-		return
-	}
-
-	if urlPath == "/login/oauth/authorize" {
-		redirectUrl, err := fastAutoSignin(ctx)
-		if err != nil {
-			responseError(ctx, err.Error())
-			return
-		}
-
-		if redirectUrl != "" {
-			http.Redirect(ctx.ResponseWriter, ctx.Request, redirectUrl, http.StatusFound)
-			return
-		}
-
-		if serveProviderHintRedirectPage(ctx) {
-			return
-		}
-	}
-
-	if serveAuthCallbackPage(ctx) {
-		return
-	}
-
-	webBuildFolder := getWebBuildFolder()
-	path := webBuildFolder
-	if urlPath == "/" {
-		path += "/index.html"
-	} else {
-		path += urlPath
-	}
-
-	// Preventing synchronization problems from concurrency
-	ctx.Input.CruSession = nil
-
-	organizationThemeCookie, err := appendThemeCookie(ctx, urlPath)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	if !filepath.IsLocal(strings.TrimPrefix(urlPath, "/")) || !util.FileExist(path) {
-		path = webBuildFolder + "/index.html"
-	}
-	if strings.HasSuffix(path, "/index.html") {
-		err = util.AppendWebConfigCookie(ctx)
-		if err != nil {
-			logs.Error("AppendWebConfigCookie failed in StaticFilter, error: %s", err)
-		}
-	}
-	if !util.FileExist(path) {
-		dir, err := os.Getwd()
-		if err != nil {
-			panic(err)
-		}
-		dir = strings.ReplaceAll(dir, "\\", "/")
-		ctx.ResponseWriter.WriteHeader(http.StatusNotFound)
-		errorText := fmt.Sprintf("The Casdoor frontend HTML file: \"index.html\" was not found, it should be placed at: \"%s/web/build/index.html\". For more information, see: https://casdoor.org/docs/basic/server-installation/#frontend-1", dir)
-		http.ServeContent(ctx.ResponseWriter, ctx.Request, "Casdoor frontend has encountered error...", time.Now(), strings.NewReader(errorText))
-		return
-	}
-
-	if oldStaticBaseUrl == newStaticBaseUrl {
-		makeGzipResponse(ctx.ResponseWriter, ctx.Request, path, organizationThemeCookie)
-	} else {
-		serveFileWithReplace(ctx.ResponseWriter, ctx.Request, path, organizationThemeCookie)
-	}
+	serveHeadlessResponse(ctx)
 }
 
 func serveHeadlessResponse(ctx *context.Context) {
@@ -291,57 +172,4 @@ func serveHeadlessResponse(ctx *context.Context) {
 	ctx.Output.Header("Cache-Control", "no-store")
 	ctx.ResponseWriter.WriteHeader(http.StatusNotImplemented)
 	_, _ = ctx.ResponseWriter.Write([]byte(`{"error":"headless_ui_required","message":"Casdoor core is running without a bundled UI; configure an external authentication UI for browser flows."}`))
-}
-
-func serveFileWithReplace(w http.ResponseWriter, r *http.Request, name string, organizationThemeCookie *OrganizationThemeCookie) {
-	f, err := os.Open(filepath.Clean(name))
-	if err != nil {
-		panic(err)
-	}
-	defer f.Close()
-
-	d, err := f.Stat()
-	if err != nil {
-		panic(err)
-	}
-
-	oldContent := util.ReadStringFromPath(name)
-	newContent := oldContent
-	if organizationThemeCookie != nil {
-		newContent = strings.ReplaceAll(newContent, "https://cdn.casbin.org/img/favicon.png", html.EscapeString(organizationThemeCookie.Favicon))
-		newContent = strings.ReplaceAll(newContent, "<title>Casdoor</title>", fmt.Sprintf("<title>%s</title>", html.EscapeString(organizationThemeCookie.DisplayName)))
-	}
-
-	// Set the correct <html lang="..."> on the initial HTML response so browsers
-	// do not mis-detect the page language (e.g. Chrome offering to translate a
-	// Chinese page into Chinese because the static shell declares lang="en").
-	if strings.HasSuffix(name, "index.html") {
-		lang := getIndexHtmlLanguage(r)
-		newContent = strings.ReplaceAll(newContent, `<html lang="en">`, fmt.Sprintf(`<html lang="%s">`, lang))
-	}
-
-	newContent = strings.ReplaceAll(newContent, oldStaticBaseUrl, newStaticBaseUrl)
-
-	http.ServeContent(w, r, d.Name(), d.ModTime(), strings.NewReader(newContent))
-}
-
-type gzipResponseWriter struct {
-	io.Writer
-	http.ResponseWriter
-}
-
-func (w gzipResponseWriter) Write(b []byte) (int, error) {
-	return w.Writer.Write(b)
-}
-
-func makeGzipResponse(w http.ResponseWriter, r *http.Request, path string, organizationThemeCookie *OrganizationThemeCookie) {
-	if !enableGzip || !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
-		serveFileWithReplace(w, r, path, organizationThemeCookie)
-		return
-	}
-	w.Header().Set("Content-Encoding", "gzip")
-	gz := gzip.NewWriter(w)
-	defer gz.Close()
-	gzw := gzipResponseWriter{Writer: gz, ResponseWriter: w}
-	serveFileWithReplace(gzw, r, path, organizationThemeCookie)
 }
