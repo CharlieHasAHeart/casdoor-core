@@ -1,7 +1,7 @@
 
 # Image URL to use all building/pushing image targets
 REGISTRY ?= casbin
-IMG ?= casdoor
+IMG ?= casdoor-core-go
 IMG_TAG ?=$(shell git --no-pager log -1 --format="%ad" --date=format:"%Y%m%d")-$(shell git describe --tags --always --dirty --abbrev=6)
 NAMESPACE ?= casdoor
 APP ?= casdoor
@@ -76,7 +76,7 @@ run: fmt vet ## Run backend in local
 
 .PHONY: docker-build
 docker-build: ## Build docker image with the manager.
-	docker build -t ${REGISTRY}/${IMG}:${IMG_TAG} .
+	docker build --target standard -t ${REGISTRY}/${IMG}:${IMG_TAG} .
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
